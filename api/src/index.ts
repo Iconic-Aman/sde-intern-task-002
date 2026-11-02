@@ -101,4 +101,48 @@ app.post('/api/homes/:homeId/bills', async (c) => {
   return c.json({ id, homeId, title, totalCents, shares }, 201)
 })
 
+app.post('/api/bills/:billId/shares/:shareId/pay', async (c) => {
+  const key = c.req.header('Idempotency-Key')?.trim()
+  if (!key) return c.json({ error: 'Idempotency-Key is required' }, 400)
+  const { billId, shareId } = c.req.param()
+  const paidAt = new Date().toISOString()
+  const result = await c.env.DB.prepare(
+    'UPDATE shares SET paid_at = ?, payment_key = ? WHERE id = ? AND bill_id = ? AND paid_at IS NULL',
+  )
+    .bind(paidAt, key, shareId, billId)
+    .run()
+  const share = await c.env.DB.prepare(
+    'SELECT id, member_id AS memberId, amount_cents AS amountCents, paid_at AS paidAt, payment_key AS paymentKey FROM shares WHERE id = ? AND bill_id = ?',
+  )
+    .bind(shareId, billId)
+    .first<{
+      id: string
+      memberId: string
+      amountCents: number
+      paidAt: string | null
+      paymentKey: string | null
+    }>()
+  if (!share) return c.json({ error: 'Bill or share not found' }, 404)
+  if (result.meta.changes === 0 && share.paymentKey !== key)
+    return c.json({ error: 'Share already paid with a different key' }, 409)
+  return c.json({
+    id: share.id,
+    memberId: share.memberId,
+    amountCents: share.amountCents,
+    paidAt: share.paidAt,
+  })
+})
+
+app.get('/api/homes/:homeId/balances', async (c) => {
+  const homeId = c.req.param('homeId')
+  const home = await c.env.DB.prepare('SELECT id FROM homes WHERE id = ?').bind(homeId).first()
+  if (!home) return c.json({ error: 'Home not found' }, 404)
+  const { results } = await c.env.DB.prepare(
+    'SELECT m.id AS memberId, m.name, COALESCE(SUM(s.amount_cents), 0) AS outstandingCents FROM members m LEFT JOIN shares s ON s.member_id = m.id AND s.paid_at IS NULL WHERE m.home_id = ? GROUP BY m.id ORDER BY m.rowid',
+  )
+    .bind(homeId)
+    .all<{ memberId: string; name: string; outstandingCents: number }>()
+  return c.json({ balances: results })
+})
+
 export default app
