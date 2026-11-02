@@ -101,6 +101,56 @@ app.post('/api/homes/:homeId/bills', async (c) => {
   return c.json({ id, homeId, title, totalCents, shares }, 201)
 })
 
+app.get('/api/homes/:homeId/bills', async (c) => {
+  const homeId = c.req.param('homeId')
+  const home = await c.env.DB.prepare('SELECT id FROM homes WHERE id = ?').bind(homeId).first()
+  if (!home) return c.json({ error: 'Home not found' }, 404)
+  const { results } = await c.env.DB.prepare(
+    'SELECT b.id, b.title, b.total_cents AS totalCents, s.id AS shareId, s.member_id AS memberId, m.name AS memberName, s.amount_cents AS amountCents, s.paid_at AS paidAt FROM bills b JOIN shares s ON s.bill_id = b.id JOIN members m ON m.id = s.member_id WHERE b.home_id = ? ORDER BY b.rowid, s.rowid',
+  )
+    .bind(homeId)
+    .all<{
+      id: string
+      title: string
+      totalCents: number
+      shareId: string
+      memberId: string
+      memberName: string
+      amountCents: number
+      paidAt: string | null
+    }>()
+  const bills = new Map<
+    string,
+    {
+      id: string
+      title: string
+      totalCents: number
+      shares: {
+        id: string
+        memberId: string
+        memberName: string
+        amountCents: number
+        paidAt: string | null
+      }[]
+    }
+  >()
+  for (const row of results) {
+    let bill = bills.get(row.id)
+    if (!bill) {
+      bill = { id: row.id, title: row.title, totalCents: row.totalCents, shares: [] }
+      bills.set(row.id, bill)
+    }
+    bill.shares.push({
+      id: row.shareId,
+      memberId: row.memberId,
+      memberName: row.memberName,
+      amountCents: row.amountCents,
+      paidAt: row.paidAt,
+    })
+  }
+  return c.json({ bills: [...bills.values()] })
+})
+
 app.post('/api/bills/:billId/shares/:shareId/pay', async (c) => {
   const key = c.req.header('Idempotency-Key')?.trim()
   if (!key) return c.json({ error: 'Idempotency-Key is required' }, 400)
