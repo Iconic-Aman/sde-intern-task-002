@@ -13,6 +13,7 @@ build/
 
 # wrangler-generated types — regenerate on `pnpm install` via api/postinstall
 api/worker-configuration.d.ts
+instructions.md
 
 # Note: web/src/routeTree.gen.ts IS committed so fresh-clone typecheck works.
 # The TanStack Router vite plugin regenerates it on dev/build.
