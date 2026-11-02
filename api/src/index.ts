@@ -25,7 +25,7 @@ app.onError((error, c) => {
 })
 app.notFound((c) => c.json({ error: 'Not found' }, 404))
 
-app.get('/api/health', (c) => c.json({ status: 'ok' }))
+app.get('/api/health', (c) => c.json({ status: 'server is healthy' }))
 
 app.post('/api/homes', async (c) => {
   const result = await getName(c.req.raw)
