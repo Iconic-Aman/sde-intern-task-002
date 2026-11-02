@@ -20,16 +20,16 @@ graph LR
     WEB -->|"fetch /api/*"| API
 ```
 
-| Layer | Choice | Note |
-|---|---|---|
-| Monorepo | pnpm workspace (`api`, `web`) | install once at root |
-| API | Hono + TypeScript on Cloudflare Workers | `export default app`, no Node server |
-| Config | `api/wrangler.jsonc` | D1 binding named `DB` |
-| Database | Cloudflare D1 (SQLite) | schema in `api/migrations/` |
-| Validation | Zod | runtime checks, like Pydantic |
-| Web | React + Vite + TanStack Router | data fetching: TanStack Query (optional) |
-| Tests | Vitest in the Workers runtime | visible + hidden tests |
-| Quality | Biome + `tsc` strict, no `any` | `pnpm check`, `pnpm typecheck` |
+| Layer      | Choice                                  | Note                                     |
+| ---------- | --------------------------------------- | ---------------------------------------- |
+| Monorepo   | pnpm workspace (`api`, `web`)       | install once at root                     |
+| API        | Hono + TypeScript on Cloudflare Workers | `export default app`, no Node server   |
+| Config     | `api/wrangler.jsonc`                  | D1 binding named `DB`                  |
+| Database   | Cloudflare D1 (SQLite)                  | schema in `api/migrations/`            |
+| Validation | Zod                                     | runtime checks, like Pydantic            |
+| Web        | React + Vite + TanStack Router          | data fetching: TanStack Query (optional) |
+| Tests      | Vitest in the Workers runtime           | visible + hidden tests                   |
+| Quality    | Biome + `tsc` strict, no `any`      | `pnpm check`, `pnpm typecheck`       |
 
 ---
 
@@ -148,6 +148,7 @@ erDiagram
 ```
 
 Rules the diagram shows:
+
 - One home has many members and many bills.
 - One bill has one share per member (`UNIQUE (bill_id, member_id)`).
 - A share is unpaid while `paid_at` and `payment_key` are both `NULL`.
@@ -199,15 +200,15 @@ CREATE INDEX idx_shares_bill  ON shares(bill_id);
 
 ### What each constraint stops (for the video)
 
-| Constraint | Stops |
-|---|---|
-| `fk_members_home`, `fk_bills_home` | Members or bills pointing to a home that doesn't exist |
-| `fk_shares_bill`, `fk_shares_member` | Shares with no bill or no member |
-| `ck_bills_total_positive` | Zero or negative bills, even if the API check is bypassed |
-| `ck_shares_amount_nonneg` | Negative shares |
-| `uq_shares_bill_member` | Two shares for one member in one bill (for example a retried request) |
-| `ck_shares_paid_pair` | A share with `paid_at` but no key, or the reverse |
-| `ck_*_name_not_blank` | Empty names |
+| Constraint                               | Stops                                                                 |
+| ---------------------------------------- | --------------------------------------------------------------------- |
+| `fk_members_home`, `fk_bills_home`   | Members or bills pointing to a home that doesn't exist                |
+| `fk_shares_bill`, `fk_shares_member` | Shares with no bill or no member                                      |
+| `ck_bills_total_positive`              | Zero or negative bills, even if the API check is bypassed             |
+| `ck_shares_amount_nonneg`              | Negative shares                                                       |
+| `uq_shares_bill_member`                | Two shares for one member in one bill (for example a retried request) |
+| `ck_shares_paid_pair`                  | A share with `paid_at` but no key, or the reverse                   |
+| `ck_*_name_not_blank`                  | Empty names                                                           |
 
 Open item: check the visible tests for the id type. This design assumes integer ids. If the tests expect strings (UUIDs), change the id columns and keep member order with a separate `created_at` or sequence column.
 
@@ -217,14 +218,14 @@ Open item: check the visible tests for the id type. This design assumes integer 
 
 Every error is JSON: `{ "error": "message" }`.
 
-| Endpoint | Success | Errors |
-|---|---|---|
-| `POST /api/homes` `{ name }` | 201 `{ id, name }` | 422 bad name |
-| `POST /api/homes/:homeId/members` `{ name }` | 201 `{ id, homeId, name }` | 404 home, 422 bad name |
-| `POST /api/homes/:homeId/bills` `{ title, totalCents }` | 201 `{ id, homeId, title, totalCents, shares[] }` | 404 home, 422 bad total or no members |
-| `POST /api/bills/:billId/shares/:shareId/pay` + `Idempotency-Key` | 200 `{ id, memberId, amountCents, paidAt }` | 400 key missing, 404 bill/share, 409 paid with other key |
-| `GET /api/homes/:homeId/balances` | 200 `{ balances: [{ memberId, name, outstandingCents }] }` | 404 home |
-| `GET /api/health` | 200 `{ status: "ok" }` | none |
+| Endpoint                                                              | Success                                                      | Errors                                                   |
+| --------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------- |
+| `POST /api/homes` `{ name }`                                      | 201 `{ id, name }`                                         | 422 bad name                                             |
+| `POST /api/homes/:homeId/members` `{ name }`                      | 201 `{ id, homeId, name }`                                 | 404 home, 422 bad name                                   |
+| `POST /api/homes/:homeId/bills` `{ title, totalCents }`           | 201 `{ id, homeId, title, totalCents, shares[] }`          | 404 home, 422 bad total or no members                    |
+| `POST /api/bills/:billId/shares/:shareId/pay` + `Idempotency-Key` | 200 `{ id, memberId, amountCents, paidAt }`                | 400 key missing, 404 bill/share, 409 paid with other key |
+| `GET /api/homes/:homeId/balances`                                   | 200 `{ balances: [{ memberId, name, outstandingCents }] }` | 404 home                                                 |
+| `GET /api/health`                                                   | 200 `{ status: "ok" }`                                     | none                                                     |
 
 Global handlers: `app.onError` returns 500 JSON. `app.notFound` returns 404 JSON. Bad JSON body returns a JSON 400, never a crash.
 
@@ -233,16 +234,19 @@ Global handlers: `app.onError` returns 500 JSON. `app.notFound` returns 404 JSON
 ## 6. Rules and logic
 
 **Split** (pure function, easy to unit test):
+
 ```
 base  = floor(total / n)
 extra = total % n
 member i (0-based, in join order) gets base + 1 if i < extra, else base
 ```
+
 1000 cents / 3 members = 334, 333, 333. The sum always equals `totalCents`.
 
 **Create bill:** check home (404), validate total (422), load members `ORDER BY id` (422 if none), compute shares, insert bill and all shares in **one `DB.batch([...])`** so it is all or nothing.
 
 **Pay:**
+
 1. Missing or empty `Idempotency-Key`: 400.
 2. Atomic claim: `UPDATE shares SET paid_at = ?, payment_key = ? WHERE id = ? AND bill_id = ? AND paid_at IS NULL`.
 3. If `meta.changes === 1`, return 200.
@@ -251,6 +255,7 @@ member i (0-based, in join order) gets base + 1 if i < extra, else base
 No read-then-write. The `WHERE paid_at IS NULL` makes the database decide the winner, so two requests at once cannot both pay.
 
 **Balances:**
+
 ```sql
 SELECT m.id, m.name, COALESCE(SUM(s.amount_cents), 0) AS outstanding
 FROM members m
@@ -259,6 +264,7 @@ WHERE m.home_id = ?
 GROUP BY m.id
 ORDER BY m.id;
 ```
+
 `LEFT JOIN` keeps members with no unpaid shares, showing 0.
 
 ---
@@ -268,80 +274,85 @@ ORDER BY m.id;
 Visible: `homes.test.ts`, `bills.test.ts`, `payments.test.ts`. Hidden tests go deeper on the cases below.
 
 ### Homes and members
-| # | Case | Expected |
-|---|---|---|
-| 1 | Create home with valid name | 201 `{ id, name }` |
+
+| # | Case                                        | Expected                           |
+| - | ------------------------------------------- | ---------------------------------- |
+| 1 | Create home with valid name                 | 201 `{ id, name }`               |
 | 2 | Name missing, empty, blank, or not a string | 422 (confirm in `homes.test.ts`) |
-| 3 | Add member to existing home | 201 `{ id, homeId, name }` |
-| 4 | Add member to unknown home | 404 |
-| 5 | `homeId` not a number (`abc`) | 404, not 500 |
-| 6 | Body is not valid JSON | JSON error, not a crash |
+| 3 | Add member to existing home                 | 201 `{ id, homeId, name }`       |
+| 4 | Add member to unknown home                  | 404                                |
+| 5 | `homeId` not a number (`abc`)           | 404, not 500                       |
+| 6 | Body is not valid JSON                      | JSON error, not a crash            |
 
 ### Bills and split
-| # | Case | Expected |
-|---|---|---|
-| 7 | Home has no members | 422 |
-| 8 | `totalCents` is `0` | 422 |
-| 9 | `totalCents` is negative | 422 |
-| 10 | `totalCents` is `10.5` | 422 |
-| 11 | `totalCents` is a string `"100"`, `null`, or missing | 422 |
-| 12 | `totalCents` is huge, above `Number.MAX_SAFE_INTEGER` or `Infinity` | 422 |
-| 13 | Even split, 900 / 3 | 300, 300, 300 |
-| 14 | Uneven split, 1000 / 3 | 334, 333, 333 in join order |
-| 15 | Total smaller than members, 2 cents / 3 members | 1, 1, 0 (sum still 2) |
-| 16 | 1 member | One share with the full amount |
-| 17 | Shares sum equals `totalCents` | always |
-| 18 | `shares[].paidAt` on creation | `null` |
-| 19 | Shares listed in member join order | yes |
-| 20 | Member added after a bill exists | no share on the old bill |
-| 21 | Unknown home | 404 |
-| 22 | Bill creation fails halfway | no bill and no shares left behind (batch) |
+
+| #  | Case                                                                      | Expected                                  |
+| -- | ------------------------------------------------------------------------- | ----------------------------------------- |
+| 7  | Home has no members                                                       | 422                                       |
+| 8  | `totalCents` is `0`                                                   | 422                                       |
+| 9  | `totalCents` is negative                                                | 422                                       |
+| 10 | `totalCents` is `10.5`                                                | 422                                       |
+| 11 | `totalCents` is a string `"100"`, `null`, or missing                | 422                                       |
+| 12 | `totalCents` is huge, above `Number.MAX_SAFE_INTEGER` or `Infinity` | 422                                       |
+| 13 | Even split, 900 / 3                                                       | 300, 300, 300                             |
+| 14 | Uneven split, 1000 / 3                                                    | 334, 333, 333 in join order               |
+| 15 | Total smaller than members, 2 cents / 3 members                           | 1, 1, 0 (sum still 2)                     |
+| 16 | 1 member                                                                  | One share with the full amount            |
+| 17 | Shares sum equals `totalCents`                                          | always                                    |
+| 18 | `shares[].paidAt` on creation                                           | `null`                                  |
+| 19 | Shares listed in member join order                                        | yes                                       |
+| 20 | Member added after a bill exists                                          | no share on the old bill                  |
+| 21 | Unknown home                                                              | 404                                       |
+| 22 | Bill creation fails halfway                                               | no bill and no shares left behind (batch) |
 
 ### Payments
-| # | Case | Expected |
-|---|---|---|
-| 23 | Pay unpaid share with key | 200, `paidAt` set |
-| 24 | Missing or empty `Idempotency-Key` | 400 |
-| 25 | Same key sent twice, same share | 200 both times, identical body, `paidAt` unchanged |
-| 26 | Different key on an already paid share | 409 |
-| 27 | Unknown bill | 404 |
-| 28 | Unknown share | 404 |
-| 29 | Share exists but belongs to another bill | 404 |
-| 30 | Two requests at once, different keys | one 200, one 409 |
-| 31 | Two requests at once, same key | both 200, one payment |
-| 32 | Same key used on a different share | pays that share normally (key is per share) |
-| 33 | Non-numeric `billId` or `shareId` | 404 |
+
+| #  | Case                                     | Expected                                             |
+| -- | ---------------------------------------- | ---------------------------------------------------- |
+| 23 | Pay unpaid share with key                | 200, `paidAt` set                                  |
+| 24 | Missing or empty `Idempotency-Key`     | 400                                                  |
+| 25 | Same key sent twice, same share          | 200 both times, identical body, `paidAt` unchanged |
+| 26 | Different key on an already paid share   | 409                                                  |
+| 27 | Unknown bill                             | 404                                                  |
+| 28 | Unknown share                            | 404                                                  |
+| 29 | Share exists but belongs to another bill | 404                                                  |
+| 30 | Two requests at once, different keys     | one 200, one 409                                     |
+| 31 | Two requests at once, same key           | both 200, one payment                                |
+| 32 | Same key used on a different share       | pays that share normally (key is per share)          |
+| 33 | Non-numeric `billId` or `shareId`    | 404                                                  |
 
 ### Balances
-| # | Case | Expected |
-|---|---|---|
-| 34 | Unknown home | 404 |
-| 35 | Home with members, no bills | every member `0` |
-| 36 | Home with no members | `{ balances: [] }` |
-| 37 | Sum across multiple bills | correct per member |
-| 38 | Paid shares | not counted |
-| 39 | Member order | order added |
-| 40 | Two homes | data never mixes |
+
+| #  | Case                        | Expected             |
+| -- | --------------------------- | -------------------- |
+| 34 | Unknown home                | 404                  |
+| 35 | Home with members, no bills | every member `0`   |
+| 36 | Home with no members        | `{ balances: [] }` |
+| 37 | Sum across multiple bills   | correct per member   |
+| 38 | Paid shares                 | not counted          |
+| 39 | Member order                | order added          |
+| 40 | Two homes                   | data never mixes     |
 
 ### Errors and server
-| # | Case | Expected |
-|---|---|---|
-| 41 | Unknown route | 404 `{ "error": ... }` |
-| 42 | Unexpected exception | 500 `{ "error": ... }`, no stack trace leaked |
+
+| #  | Case                 | Expected                                                   |
+| -- | -------------------- | ---------------------------------------------------------- |
+| 41 | Unknown route        | 404 `{ "error": ... }`                                   |
+| 42 | Unexpected exception | 500 `{ "error": ... }`, no stack trace leaked            |
 | 43 | Every error response | `Content-Type: application/json` and an `error` string |
 
 ---
 
 ## 8. Web page (one page)
 
-| State | Behavior |
-|---|---|
-| Loading | Spinner or skeleton while bills load |
-| Empty | "No bills yet" message |
-| Error | Message plus Retry button, no crash |
-| Slow API | Pay button disabled and shows "Paying..." while pending |
-| Pay success | Share shows paid |
-| Pay failure | Share **stays unpaid**, error shown near it |
+| State       | Behavior                                                |
+| ----------- | ------------------------------------------------------- |
+| Loading     | Spinner or skeleton while bills load                    |
+| Empty       | "No bills yet" message                                  |
+| Error       | Message plus Retry button, no crash                     |
+| Slow API    | Pay button disabled and shows "Paying..." while pending |
+| Pay success | Share shows paid                                        |
+| Pay failure | Share **stays unpaid**, error shown near it       |
 
 Rules: don't mark paid until the API answers 200. Generate one `Idempotency-Key` per click attempt (`crypto.randomUUID()`), and reuse it if the user retries the same attempt. Wrap the page in an error boundary so a bad response can't blank it.
 
@@ -364,13 +375,13 @@ Rules: don't mark paid until the API answers 200. Generate one `Idempotency-Key`
 
 ## 10. Decisions (draft for README)
 
-| Decision | Choice | Why |
-|---|---|---|
-| Money | Integer cents only | Decimals cause rounding errors (`0.1 + 0.2`) |
-| Race on pay | One conditional `UPDATE ... WHERE paid_at IS NULL` | The database picks one winner, no read-then-write gap |
-| Idempotency | Key stored on the share | Same key returns the same result, different key returns 409 |
-| Bill + shares | `DB.batch` | All or nothing, no half-created bills |
-| Validation | Zod at the edge, CHECK constraints in the DB | Two layers: friendly errors plus a safety net |
+| Decision                | Choice                                                    | Why                                                                                                 |
+| ----------------------- | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Money                   | Integer cents only                                        | Decimals cause rounding errors (`0.1 + 0.2`)                                                      |
+| Race on pay             | One conditional `UPDATE ... WHERE paid_at IS NULL`      | The database picks one winner, no read-then-write gap                                               |
+| Idempotency             | Key stored on the share                                   | Same key returns the same result, different key returns 409                                         |
+| Bill + shares           | `DB.batch`                                              | All or nothing, no half-created bills                                                               |
+| Validation              | Zod at the edge, CHECK constraints in the DB              | Two layers: friendly errors plus a safety net                                                       |
 | Trade-off for the video | Key stored per share, not in a separate idempotency table | Simpler and enough here. A separate table would be needed if keys had to work across many endpoints |
 
 ---
